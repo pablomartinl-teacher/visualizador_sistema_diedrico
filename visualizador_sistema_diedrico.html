@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SISTEMA DIÉDRICO</title>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background-color: #1a1a24; color: #fff; margin: 0; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        h2 { color: #00d2ff; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; text-align: center; }
+        p.subtitle { color: #aaa; margin-top: 0; margin-bottom: 15px; font-size: 0.9em; text-align: center; }
+        
+        .mode-switch { display: flex; gap: 10px; margin-bottom: 20px; background: #232336; padding: 5px; border-radius: 25px; flex-wrap: wrap; justify-content: center; }
+        .mode-switch button { background: transparent; color: #aaa; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 1em; cursor: pointer; transition: 0.3s; }
+        .mode-switch button.active { background: #00d2ff; color: #000; }
+
+        .cam-controls { display: flex; gap: 8px; margin-bottom: 10px; justify-content: center; width: 100%; align-items: center;}
+        .cam-controls button { background: #363654; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em; font-weight: bold; }
+        .cam-controls button:hover { background: #4a4a6a; }
+
+        .dashboard { display: flex; gap: 20px; background: #232336; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); margin-bottom: 20px; width: 100%; max-width: 940px; box-sizing: border-box; justify-content: center; }
+        .panel { display: flex; flex-direction: column; align-items: center; width: 100%; position: relative; }
+        canvas { background: #ffffff; border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); max-width: 100%; }
+        #view3D { cursor: grab; touch-action: none; } #view3D:active { cursor: grabbing; }
+        #view2D { cursor: grab; touch-action: none; } #view2D:active { cursor: grabbing; }
+
+        .ui-container { width: 100%; max-width: 940px; background: #2a2a40; border-radius: 10px; padding: 20px; box-sizing: border-box; }
+        .tabs-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #444; overflow-x: auto; }
+        .point-tab { padding: 8px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: all 0.2s ease; background: #1a1a24; color: #888; border: 2px solid transparent; white-space: nowrap; }
+        .point-tab.active { background: #363654; color: #fff; transform: scale(1.05); }
+        .action-btns { display: flex; gap: 10px; margin-left: auto; }
+        .btn-action { padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; border: none; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+        .btn-add { background: #00d2ff; color: #000; } .btn-add:hover { background: #00a8cc; }
+        .btn-delete { background: #ff4757; color: #fff; } .btn-delete:hover { background: #ff6b81; }
+
+        .section-title { grid-column: 1 / -1; color: #00d2ff; font-size: 1.1em; font-weight: bold; margin: 10px 0 5px 0; border-bottom: 1px solid #444; padding-bottom: 5px; display: flex; justify-content: space-between; align-items: center;}
+        
+        .sliders-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; align-items: start; margin-bottom: 10px;}
+        .slider-group { background: #1a1a24; padding: 12px; border-radius: 8px; display: flex; flex-direction: column; position: relative; }
+        .slider-group label { margin-bottom: 8px; font-weight: bold; color: #aaa; font-size: 0.9em; }
+        .val-badge { background: #363654; color: #fff; padding: 2px 6px; border-radius: 4px; float: right; }
+        input[type=range] { width: 100%; cursor: pointer; margin-bottom: 5px; }
+        .labels { display: flex; justify-content: space-between; font-size: 0.7em; color: #666; }
+        .inf-chk { color:#00d2ff; font-size:0.85em; margin-top:8px; cursor:pointer; display: flex; align-items: center; gap: 4px; }
+        
+        .status-box { background: #2ed573; color: #000; padding: 12px; border-radius: 6px; font-weight: bold; text-align: center; font-size: 1.1em; margin-top: 15px; }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; } .dashboard { flex-direction: column; padding: 15px; }
+            .sliders-grid { grid-template-columns: 1fr; } .mode-switch { flex-wrap: wrap; justify-content: center; }
+            .action-btns { flex-direction: column; margin-left: 0; margin-top: 10px; } .tabs-header { flex-direction: column; align-items: flex-start; }
+            #dynamicTabs { flex-wrap: wrap; } canvas { height: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <h2>SISTEMA DIÉDRICO</h2>
+    <p class="subtitle">Puntos | Rectas | Planos </p>
+
+    <div class="mode-switch">
+        <button id="btnModePoints" class="active">Modo Puntos</button>
+        <button id="btnModeLines">Modo Rectas</button>
+        <button id="btnModePlanes">Modo Planos</button> 
+        <div style="margin-left: 15px; display:flex; align-items:center; gap: 10px; background: #363654; padding: 5px 15px; border-radius: 20px;">
+            <label style="cursor:pointer; color:#eccc68; font-weight:bold; display:flex; align-items:center;">
+                <input type="checkbox" id="chkPerfil" style="margin-right:8px; transform: scale(1.2);"> Ver 3ª Proy. (PP)
+            </label>
+            <input type="range" id="perfilXSlider" min="-400" max="400" value="-120" style="width: 80px;" title="Mover Plano de Perfil">
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="panel">
+            <h3 style="margin-top:0; color: #aaa;">Visión Espacial (3D)</h3>
+            <div class="cam-controls">
+                <button onclick="setCamera('iso')">Isométrica</button>
+                <button onclick="setCamera('planta')">Planta</button>
+                <button onclick="setCamera('alzado')">Alzado</button>
+                <button onclick="setCamera('perfil')">Perfil</button>
+            </div>
+            <canvas id="view3D" width="500" height="400"></canvas>
+        </div>
+        <div class="panel">
+            <h3 style="margin-top:0; color: #aaa;">Proyección Diédrica (2D)</h3>
+            <div class="cam-controls">
+                <button onclick="resetZoom2D()">Centrar / Reset Zoom</button>
+            </div>
+            <canvas id="view2D" width="400" height="400"></canvas>
+        </div>
+    </div>
+
+    <div class="ui-container">
+        <div class="tabs-header" id="tabsContainer">
+            <div id="dynamicTabs" style="display:flex; gap:10px;"></div>
+            <div class="action-btns">
+                <button class="btn-action btn-add" id="addBtn"><span>+</span> Nuevo</button>
+                <button class="btn-action btn-delete" id="deleteBtn"><span>×</span> Eliminar</button>
+            </div>
+        </div>
+
+        <div id="panelTypeSelect" style="display:none; grid-column: span 3; margin-bottom: 15px; background: #363654; padding: 10px 15px; border-radius: 8px;">
+            <label style="font-weight:bold; color:#00d2ff; margin-right:10px;">Tipo de Plano:</label>
+            <select id="planeTypeSelect" style="padding: 5px 10px; border-radius: 5px; background: #1a1a24; color: white; border: 1px solid #555; font-weight: bold; cursor: pointer;">
+                <option value="oblicuo">Oblicuo Estándar</option>
+                <option value="proy_vert">Proyectante Vertical (⊥ PV)</option>
+                <option value="proy_horiz">Proyectante Horizontal (⊥ PH)</option>
+                <option value="perfil">De Perfil (⊥ LT)</option>
+                <option value="horizontal">Horizontal (∥ PH)</option>
+                <option value="frontal">Frontal (∥ PV)</option>
+                <option value="paralelo_lt">Paralelo a la Línea de Tierra</option>
+            </select>
+        </div>
+
+        <div id="panelLineTypeSelect" style="display:none; grid-column: span 3; margin-bottom: 15px; background: #363654; padding: 10px 15px; border-radius: 8px;">
+            <label style="font-weight:bold; color:#00d2ff; margin-right:10px;">Tipo de Recta:</label>
+            <select id="lineTypeSelect" style="padding: 5px 10px; border-radius: 5px; background: #1a1a24; color: white; border: 1px solid #555; font-weight: bold; cursor: pointer;">
+                <option value="oblicua">Oblicua (Estándar)</option>
+                <option value="horizontal">Horizontal (∥ PH)</option>
+                <option value="frontal">Frontal (∥ PV)</option>
+                <option value="vertical">Vertical (⊥ PH)</option>
+                <option value="punta">De Punta (⊥ PV)</option>
+                <option value="perfil">De Perfil (⊥ LT oblicua a planos)</option>
+                <option value="paralela_lt">Paralela a la Línea de Tierra</option>
+                <option value="incidente_lt">Incidente a la Línea de Tierra</option>
+            </select>
+        </div>
+
+        <div class="section-title" id="titleP1">Coordenadas del Punto</div>
+        <div class="sliders-grid">
+            <div class="slider-group">
+                <label><span id="lblDesv1">Desvío (X):</span> <span class="val-badge" id="valDesv1">0</span></label>
+                <input type="range" id="desv1" min="-150" max="150" value="0">
+                <div class="labels"><span>Izquierda</span><span>Derecha</span></div>
+                <label class="inf-chk" id="lblInfX1" style="display:none;"><input type="checkbox" id="chkInfX1"> Vértice en ∞</label>
+            </div>
+            <div class="slider-group">
+                <label><span id="lblAlej1">Alejamiento (Y):</span> <span class="val-badge" id="valAlej1">60</span></label>
+                <input type="range" id="alej1" min="-100" max="100" value="60">
+                <div class="labels"><span>Atrás</span><span>Delante</span></div>
+                <label class="inf-chk" id="lblInfY1" style="display:none;"><input type="checkbox" id="chkInfY1"> Y = ∞</label>
+            </div>
+            <div class="slider-group">
+                <label><span id="lblCota1">Cota (Z):</span> <span class="val-badge" id="valCota1">50</span></label>
+                <input type="range" id="cota1" min="-100" max="100" value="50">
+                <div class="labels"><span>Abajo</span><span>Arriba</span></div>
+                <label class="inf-chk" id="lblInfZ1" style="display:none;"><input type="checkbox" id="chkInfZ1"> Z = ∞</label>
+            </div>
+        </div>
+
+        <div id="panelP2" style="display: none;">
+            <div class="section-title">Coordenadas Extremo 2</div>
+            <div class="sliders-grid">
+                <div class="slider-group">
+                    <label>Desvío (X): <span class="val-badge" id="valDesv2">0</span></label>
+                    <input type="range" id="desv2" min="-150" max="150" value="0">
+                    <div class="labels"><span>Izquierda</span><span>Derecha</span></div>
+                    <label class="inf-chk" id="lblInfX2" style="display:none;"><input type="checkbox" id="chkInfX2"> X = ∞</label>
+                </div>
+                <div class="slider-group">
+                    <label>Alejamiento (Y): <span class="val-badge" id="valAlej2">60</span></label>
+                    <input type="range" id="alej2" min="-100" max="100" value="60">
+                    <div class="labels"><span>Atrás</span><span>Delante</span></div>
+                    <label class="inf-chk" id="lblInfY2" style="display:none;"><input type="checkbox" id="chkInfY2"> Y = ∞</label>
+                </div>
+                <div class="slider-group">
+                    <label>Cota (Z): <span class="val-badge" id="valCota2">50</span></label>
+                    <input type="range" id="cota2" min="-100" max="100" value="50">
+                    <div class="labels"><span>Abajo</span><span>Arriba</span></div>
+                    <label class="inf-chk" id="lblInfZ2" style="display:none;"><input type="checkbox" id="chkInfZ2"> Z = ∞</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-box" id="quadrantStatus">Estado</div>
+    </div>
+
+<script>
+const canvas3D = document.getElementById('view3D'); const ctx3D = canvas3D.getContext('2d');
+const canvas2D = document.getElementById('view2D'); const ctx2D = canvas2D.getContext('2d');
+
+const uiDesv1 = document.getElementById('desv1'); const uiAlej1 = document.getElementById('alej1'); const uiCota1 = document.getElementById('cota1');
+const valDesv1 = document.getElementById('valDesv1'); const valAlej1 = document.getElementById('valAlej1'); const valCota1 = document.getElementById('valCota1');
+
+const uiDesv2 = document.getElementById('desv2'); const uiAlej2 = document.getElementById('alej2'); const uiCota2 = document.getElementById('cota2');
+const valDesv2 = document.getElementById('valDesv2'); const valAlej2 = document.getElementById('valAlej2'); const valCota2 = document.getElementById('valCota2');
+
+const chkInfX1 = document.getElementById('chkInfX1'); const chkInfY1 = document.getElementById('chkInfY1'); const chkInfZ1 = document.getElementById('chkInfZ1');
+const lblInfX1 = document.getElementById('lblInfX1'); const lblInfY1 = document.getElementById('lblInfY1'); const lblInfZ1 = document.getElementById('lblInfZ1');
+const chkInfX2 = document.getElementById('chkInfX2'); const chkInfY2 = document.getElementById('chkInfY2'); const chkInfZ2 = document.getElementById('chkInfZ2');
+const lblInfX2 = document.getElementById('lblInfX2'); const lblInfY2 = document.getElementById('lblInfY2'); const lblInfZ2 = document.getElementById('lblInfZ2');
+
+const planeTypeSelect = document.getElementById('planeTypeSelect'); const panelTypeSelect = document.getElementById('panelTypeSelect');
+const lineTypeSelect = document.getElementById('lineTypeSelect'); const panelLineTypeSelect = document.getElementById('panelLineTypeSelect');
+
+const chkPerfil = document.getElementById('chkPerfil'); const perfilXSlider = document.getElementById('perfilXSlider');
+const statusBox = document.getElementById('quadrantStatus'); const dynamicTabs = document.getElementById('dynamicTabs');
+const titleP1 = document.getElementById('titleP1'); const panelP2 = document.getElementById('panelP2');
+
+let appMode = 'points';
+const pointsAlpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"; const linesAlpha = "rstuvwxyzabcdefghijklmnopq";
+const planesAlpha = ["\u03B1", "\u03B2", "\u03B3", "\u03B4", "\u03B5", "\u03C9", "\u03C3", "\u03C1"]; 
+const colors = ['#ff4757', '#1e90ff', '#2ed573', '#ffa502', '#9b59b6', '#ff6b81', '#00d2ff', '#eccc68'];
+
+let points = []; let activePointIndex = 0;
+let lines = []; let activeLineIndex = 0;
+let planes = []; let activePlaneIndex = 0; 
+
+let camera = { rotZ: -Math.PI / 6, rotX: Math.PI / 8 }; let isDragging = false; let lastMousePos = { x: 0, y: 0 };
+const origen3D = { cx: 250, cy: 200 }; let escala3D = 1.2; 
+let escala2D = 1.0; let offset2D = { x: 0, y: 0 }; let isDragging2D = false; let lastMousePos2D = { x: 0, y: 0 };
+
+points.push({ name: pointsAlpha[0], x: 0, y: 60, z: 60, color: colors[0] });
+lines.push({ name: linesAlpha[0], p1: {x: -40, y: 30, z: 80, ix:false, iy:false, iz:false}, p2: {x: 50, y: -40, z: -20, ix:false, iy:false, iz:false}, type: 'oblicua', color: colors[1] });
+planes.push({ name: planesAlpha[0], x: 0, y: 50, z: 50, type: 'oblicuo', color: colors[2] });
+switchMode('points');
+
+document.getElementById('btnModePoints').onclick = () => switchMode('points');
+document.getElementById('btnModeLines').onclick = () => switchMode('lines');
+document.getElementById('btnModePlanes').onclick = () => switchMode('planes');
+document.getElementById('addBtn').onclick = addItem;
+document.getElementById('deleteBtn').onclick = deleteItem;
+
+[uiDesv1, uiAlej1, uiCota1, uiDesv2, uiAlej2, uiCota2].forEach(s => s.addEventListener('input', updateLogic));
+[chkInfX1, chkInfY1, chkInfZ1, chkInfX2, chkInfY2, chkInfZ2, chkPerfil, perfilXSlider, planeTypeSelect, lineTypeSelect].forEach(c => c.addEventListener('change', updateLogic));
+perfilXSlider.addEventListener('input', render);
+
+function setCamera(view) {
+    if (view === 'iso') camera = { rotZ: -Math.PI / 6, rotX: Math.PI / 8 };
+    else if (view === 'planta') camera = { rotZ: 0, rotX: Math.PI / 2 };
+    else if (view === 'alzado') camera = { rotZ: 0, rotX: 0 };
+    else if (view === 'perfil') camera = { rotZ: -Math.PI / 2, rotX: 0 };
+    render();
+}
+
+function resetZoom2D() { escala2D = 1.0; offset2D = { x: 0, y: 0 }; render(); }
+
+function switchMode(mode) {
+    appMode = mode;
+    document.getElementById('btnModePoints').className = mode === 'points' ? 'active' : '';
+    document.getElementById('btnModeLines').className = mode === 'lines' ? 'active' : '';
+    document.getElementById('btnModePlanes').className = mode === 'planes' ? 'active' : '';
+    
+    if (mode === 'points') {
+        titleP1.innerText = "Coordenadas del Punto";
+        document.getElementById('lblDesv1').innerText = "Desvío (X):"; document.getElementById('lblAlej1').innerText = "Alejamiento (Y):"; document.getElementById('lblCota1').innerText = "Cota (Z):";
+        panelP2.style.display = 'none'; panelTypeSelect.style.display = 'none'; panelLineTypeSelect.style.display = 'none';
+        lblInfX1.style.display = 'none'; lblInfY1.style.display = 'none'; lblInfZ1.style.display = 'none';
+    } else if (mode === 'lines') {
+        titleP1.innerText = "Coordenadas Extremo 1";
+        document.getElementById('lblDesv1').innerText = "Desvío (X):"; document.getElementById('lblAlej1').innerText = "Alejamiento (Y):"; document.getElementById('lblCota1').innerText = "Cota (Z):";
+        panelP2.style.display = 'block'; panelTypeSelect.style.display = 'none'; panelLineTypeSelect.style.display = 'block';
+        lblInfX1.style.display = 'flex'; lblInfY1.style.display = 'flex'; lblInfZ1.style.display = 'flex';
+        lblInfX2.style.display = 'flex'; lblInfY2.style.display = 'flex'; lblInfZ2.style.display = 'flex';
+        lblInfX1.innerHTML = '<input type="checkbox" id="chkInfX1"> X1 = ∞'; lblInfY1.innerHTML = '<input type="checkbox" id="chkInfY1"> Y1 = ∞'; lblInfZ1.innerHTML = '<input type="checkbox" id="chkInfZ1"> Z1 = ∞';
+    } else if (mode === 'planes') {
+        titleP1.innerText = "Coordenadas de las Trazas del Plano";
+        document.getElementById('lblDesv1').innerText = "Vértice / Posición (X):"; document.getElementById('lblAlej1').innerText = "Alejamiento (Y):"; document.getElementById('lblCota1').innerText = "Cota (Z):";
+        panelP2.style.display = 'none'; panelTypeSelect.style.display = 'block'; panelLineTypeSelect.style.display = 'none';
+        lblInfX1.style.display = 'none'; lblInfY1.style.display = 'none'; lblInfZ1.style.display = 'none';
+    }
+    renderTabs(); updateSliders();
+}
+
+function addItem() {
+    if (appMode === 'points' && points.length < pointsAlpha.length) { points.push({ name: pointsAlpha[points.length], x: points.length*20, y: 50, z: 50, color: colors[points.length % colors.length] }); activePointIndex = points.length - 1; }
+    else if (appMode === 'lines' && lines.length < linesAlpha.length) { lines.push({ name: linesAlpha[lines.length], p1: {x: -30+lines.length*10, y: 40, z: 60, ix:false, iy:false, iz:false}, p2: {x: 50+lines.length*10, y: -20, z: 20, ix:false, iy:false, iz:false}, type: 'oblicua', color: colors[lines.length % colors.length] }); activeLineIndex = lines.length - 1; }
+    else if (appMode === 'planes' && planes.length < planesAlpha.length) { planes.push({ name: planesAlpha[planes.length], x: planes.length*25, y: 50, z: 50, type: 'oblicuo', color: colors[planes.length % colors.length] }); activePlaneIndex = planes.length - 1; }
+    renderTabs(); updateSliders();
+}
+
+function deleteItem() {
+    if (appMode === 'points' && points.length > 1) { points.splice(activePointIndex, 1); activePointIndex = Math.max(0, activePointIndex - 1); }
+    else if (appMode === 'lines' && lines.length > 1) { lines.splice(activeLineIndex, 1); activeLineIndex = Math.max(0, activeLineIndex - 1); }
+    else if (appMode === 'planes' && planes.length > 1) { planes.splice(activePlaneIndex, 1); activePlaneIndex = Math.max(0, activePlaneIndex - 1); }
+    renderTabs(); updateSliders();
+}
+
+function renderTabs() {
+    dynamicTabs.innerHTML = '';
+    const arr = appMode === 'points' ? points : (appMode === 'lines' ? lines : planes);
+    const activeIdx = appMode === 'points' ? activePointIndex : (appMode === 'lines' ? activeLineIndex : activePlaneIndex);
+    const prefix = appMode === 'points' ? 'Punto ' : (appMode === 'lines' ? 'Recta ' : 'Plano ');
+
+    arr.forEach((item, index) => {
+        const tab = document.createElement('div'); tab.className = `point-tab ${index === activeIdx ? 'active' : ''}`;
+        tab.innerText = `${prefix}${item.name}`; tab.style.borderColor = item.color;
+        if (index === activeIdx) { tab.style.backgroundColor = item.color; tab.style.color = '#fff'; }
+        tab.onclick = () => { if(appMode === 'points') activePointIndex = index; else if (appMode === 'lines') activeLineIndex = index; else activePlaneIndex = index; renderTabs(); updateSliders(); };
+        dynamicTabs.appendChild(tab);
+    });
+}
+
+function updateSliders() {
+    if (appMode === 'points') {
+        const p = points[activePointIndex]; uiDesv1.value = p.x; uiAlej1.value = p.y; uiCota1.value = p.z;
+        uiDesv1.disabled = false; uiAlej1.disabled = false; uiCota1.disabled = false;
+    } else if (appMode === 'lines') {
+        const l = lines[activeLineIndex];
+        uiDesv1.value = l.p1.x; uiAlej1.value = l.p1.y; uiCota1.value = l.p1.z; chkInfX1.checked = l.p1.ix; chkInfY1.checked = l.p1.iy; chkInfZ1.checked = l.p1.iz;
+        uiDesv2.value = l.p2.x; uiAlej2.value = l.p2.y; uiCota2.value = l.p2.z; chkInfX2.checked = l.p2.ix; chkInfY2.checked = l.p2.iy; chkInfZ2.checked = l.p2.iz;
+        lineTypeSelect.value = l.type;
+    } else if (appMode === 'planes') {
+        const pl = planes[activePlaneIndex]; uiDesv1.value = pl.x; uiAlej1.value = pl.y; uiCota1.value = pl.z;
+        planeTypeSelect.value = pl.type;
+    }
+    updateLogic();
+}
+
+function updateLogic() {
+    if (appMode === 'points') {
+        const p = points[activePointIndex]; p.x = parseInt(uiDesv1.value); p.y = parseInt(uiAlej1.value); p.z = parseInt(uiCota1.value);
+        valDesv1.innerText = p.x; valAlej1.innerText = p.y; valCota1.innerText = p.z;
+        let e = ""; let c = "#00d2ff";
+        if (p.y > 0 && p.z > 0) { e = "I Cuadrante"; c = "#2ed573"; } else if (p.y < 0 && p.z > 0) { e = "II Cuadrante"; c = "#ffa502"; }
+        else if (p.y < 0 && p.z < 0) { e = "III Cuadrante"; c = "#ff4757"; } else if (p.y > 0 && p.z < 0) { e = "IV Cuadrante"; c = "#1e90ff"; }
+        statusBox.innerText = `Punto ${p.name}: ${e}`; statusBox.style.backgroundColor = c;
+    } else if (appMode === 'lines') {
+        const l = lines[activeLineIndex];
+        l.type = lineTypeSelect.value;
+        l.p1.x = parseInt(uiDesv1.value); l.p1.y = parseInt(uiAlej1.value); l.p1.z = parseInt(uiCota1.value); l.p1.ix = document.getElementById('chkInfX1').checked; l.p1.iy = document.getElementById('chkInfY1').checked; l.p1.iz = document.getElementById('chkInfZ1').checked;
+        l.p2.x = parseInt(uiDesv2.value); l.p2.y = parseInt(uiAlej2.value); l.p2.z = parseInt(uiCota2.value); l.p2.ix = document.getElementById('chkInfX2').checked; l.p2.iy = document.getElementById('chkInfY2').checked; l.p2.iz = document.getElementById('chkInfZ2').checked;
+        
+        uiDesv1.disabled = l.p1.ix; uiAlej1.disabled = l.p1.iy; uiCota1.disabled = l.p1.iz;
+        uiDesv2.disabled = l.p2.ix; uiAlej2.disabled = l.p2.iy; uiCota2.disabled = l.p2.iz;
+
+        let msg = `Controlando Recta ${l.name} `;
+        switch(l.type) {
+            case 'oblicua': msg += "(Oblicua)"; break;
+            case 'horizontal': msg += "(Horizontal)"; uiCota2.disabled = true; l.p2.z = l.p1.z; break;
+            case 'frontal': msg += "(Frontal)"; uiAlej2.disabled = true; l.p2.y = l.p1.y; break;
+            case 'vertical': msg += "(Vertical)"; uiDesv2.disabled = true; uiAlej2.disabled = true; l.p2.x = l.p1.x; l.p2.y = l.p1.y; break;
+            case 'punta': msg += "(De Punta)"; uiDesv2.disabled = true; uiCota2.disabled = true; l.p2.x = l.p1.x; l.p2.z = l.p1.z; break;
+            case 'perfil': msg += "(De Perfil)"; uiDesv2.disabled = true; l.p2.x = l.p1.x; break;
+            case 'paralela_lt': msg += "(Paralela a LT)"; uiCota2.disabled = true; uiAlej2.disabled = true; l.p2.z = l.p1.z; l.p2.y = l.p1.y; break;
+            case 'incidente_lt': msg += "(Incidente a LT)"; uiAlej1.disabled = true; uiCota1.disabled = true; l.p1.y = 0; l.p1.z = 0; break;
+        }
+        
+        valDesv1.innerText = l.p1.ix ? "∞" : l.p1.x; valAlej1.innerText = l.p1.iy ? "∞" : l.p1.y; valCota1.innerText = l.p1.iz ? "∞" : l.p1.z;
+        valDesv2.innerText = l.p2.ix ? "∞" : l.p2.x; valAlej2.innerText = l.p2.iy ? "∞" : l.p2.y; valCota2.innerText = l.p2.iz ? "∞" : l.p2.z;
+
+        statusBox.innerText = msg; statusBox.style.backgroundColor = l.color;
+    } else if (appMode === 'planes') {
+        const pl = planes[activePlaneIndex];
+        pl.type = planeTypeSelect.value;
+        pl.x = parseInt(uiDesv1.value); pl.y = parseInt(uiAlej1.value); pl.z = parseInt(uiCota1.value);
+        
+        let msg = `Plano ${pl.name} `;
+        uiDesv1.disabled = false; uiAlej1.disabled = false; uiCota1.disabled = false;
+        
+        switch(pl.type) {
+            case 'oblicuo': msg += "(Oblicuo Estándar)"; break;
+            case 'proy_vert': msg += "(Proyectante Vertical)"; uiAlej1.disabled = true; break;
+            case 'proy_horiz': msg += "(Proyectante Horizontal)"; uiCota1.disabled = true; break;
+            case 'perfil': msg += "(De Perfil)"; uiAlej1.disabled = true; uiCota1.disabled = true; break;
+            case 'paralelo_lt': msg += "(Paralelo a LT)"; uiDesv1.disabled = true; break;
+            case 'horizontal': msg += "(Horizontal)"; uiDesv1.disabled = true; uiAlej1.disabled = true; break;
+            case 'frontal': msg += "(Frontal)"; uiDesv1.disabled = true; uiCota1.disabled = true; break;
+        }
+        
+        valDesv1.innerText = uiDesv1.disabled ? "∞ (Sin vértice)" : pl.x; 
+        valAlej1.innerText = uiAlej1.disabled ? (pl.type==='horizontal'?"∞":"⊥ a LT") : pl.y; 
+        valCota1.innerText = uiCota1.disabled ? (pl.type==='frontal'?"∞":"⊥ a LT") : pl.z;
+
+        statusBox.innerText = msg; statusBox.style.backgroundColor = pl.color;
+    }
+    statusBox.style.color = "#fff"; render();
+}
+
+canvas3D.addEventListener('mousedown', (e) => { isDragging = true; lastMousePos = { x: e.clientX, y: e.clientY }; });
+window.addEventListener('mouseup', () => { isDragging = false; isDragging2D = false; });
+window.addEventListener('mousemove', (e) => {
+    if (isDragging && e.target === canvas3D) {
+        camera.rotZ -= (e.clientX - lastMousePos.x) * 0.01; camera.rotX -= (e.clientY - lastMousePos.y) * 0.01;
+        camera.rotX = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, camera.rotX)); lastMousePos = { x: e.clientX, y: e.clientY }; render();
+    }
+});
+canvas3D.addEventListener('touchstart', (e) => { isDragging = true; lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, {passive: true});
+window.addEventListener('touchend', () => { isDragging = false; isDragging2D = false; });
+window.addEventListener('touchmove', (e) => {
+    if (isDragging && e.target === canvas3D && e.touches[0]) {
+        camera.rotZ -= (e.touches[0].clientX - lastMousePos.x) * 0.01; camera.rotX -= (e.touches[0].clientY - lastMousePos.y) * 0.01;
+        camera.rotX = Math.max(-Math.PI/2.5, Math.min(Math.PI/2.5, camera.rotX)); lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; render();
+    }
+}, {passive: true});
+canvas3D.addEventListener('wheel', (e) => { e.preventDefault(); escala3D -= e.deltaY * 0.0015; escala3D = Math.max(0.4, Math.min(escala3D, 4.5)); render(); }, { passive: false });
+
+canvas2D.addEventListener('mousedown', (e) => { isDragging2D = true; lastMousePos2D = { x: e.clientX, y: e.clientY }; });
+window.addEventListener('mousemove', (e) => {
+    if (isDragging2D && e.target === canvas2D) {
+        offset2D.x += (e.clientX - lastMousePos2D.x) / escala2D; offset2D.y += (e.clientY - lastMousePos2D.y) / escala2D;
+        lastMousePos2D = { x: e.clientX, y: e.clientY }; render();
+    }
+});
+canvas2D.addEventListener('touchstart', (e) => { isDragging2D = true; lastMousePos2D = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, {passive: true});
+window.addEventListener('touchmove', (e) => {
+    if (isDragging2D && e.target === canvas2D && e.touches[0]) {
+        offset2D.x += (e.touches[0].clientX - lastMousePos2D.x) / escala2D; offset2D.y += (e.touches[0].clientY - lastMousePos2D.y) / escala2D;
+        lastMousePos2D = { x: e.touches[0].clientX, y: e.touches[0].clientY }; render();
+    }
+}, {passive: true});
+canvas2D.addEventListener('wheel', (e) => { e.preventDefault(); escala2D -= e.deltaY * 0.002; escala2D = Math.max(0.2, Math.min(escala2D, 5.0)); render(); }, { passive: false });
+
+function project3D(x, y, z) {
+    let cosZ = Math.cos(camera.rotZ), sinZ = Math.sin(camera.rotZ); let x1 = x * cosZ - y * sinZ, y1 = x * sinZ + y * cosZ;
+    let cosX = Math.cos(camera.rotX), sinX = Math.sin(camera.rotX); let y2 = y1 * cosX - z * sinX, z2 = y1 * sinX + z * cosX;
+    return { x: origen3D.cx + x1 * escala3D, y: origen3D.cy - z2 * escala3D };
+}
+
+function drawPlane(p1, p2, p3, p4, color, borderColor) {
+    ctx3D.beginPath(); ctx3D.moveTo(p1.x, p1.y); ctx3D.lineTo(p2.x, p2.y); ctx3D.lineTo(p3.x, p3.y); ctx3D.lineTo(p4.x, p4.y); ctx3D.closePath();
+    ctx3D.fillStyle = color; ctx3D.fill(); ctx3D.strokeStyle = borderColor; ctx3D.lineWidth = 1; ctx3D.stroke();
+}
+
+function getVal(v, isInf) { return isInf ? Math.sign(v >= 0 ? 1 : -1) * 10000 : v; }
+
+function getLineData(L) {
+    let p1x = getVal(L.p1.x, L.p1.ix), p1y = getVal(L.p1.y, L.p1.iy), p1z = getVal(L.p1.z, L.p1.iz);
+    let p2x = getVal(L.p2.x, L.p2.ix), p2y = getVal(L.p2.y, L.p2.iy), p2z = getVal(L.p2.z, L.p2.iz);
+    let dx = p2x - p1x, dy = p2y - p1y, dz = p2z - p1z;
+    let t_vals = [-50, 50]; let traceH = null, traceV = null; // LIMITE EXTENDIDO PARA INFINITO R3
+    
+    if (Math.abs(dz) > 0.001 && !L.p1.iz && !L.p2.iz) { let th = -p1z / dz; if(th > -50 && th < 50) { t_vals.push(th); traceH = {x: p1x + th*dx, y: p1y + th*dy, z: 0}; } }
+    if (Math.abs(dy) > 0.001 && !L.p1.iy && !L.p2.iy) { let tv = -p1y / dy; if(tv > -50 && tv < 50) { t_vals.push(tv); traceV = {x: p1x + tv*dx, y: 0, z: p1z + tv*dz}; } }
+    t_vals.sort((a,b) => a-b); let segments = [];
+    for(let i=0; i<t_vals.length-1; i++) {
+        let t_mid = (t_vals[i] + t_vals[i+1])/2; let midY = p1y + t_mid*dy, midZ = p1z + t_mid*dz;
+        let quad = "";
+        if (midY > 0 && midZ > 0) quad = "I C."; else if (midY < 0 && midZ > 0) quad = "II C."; else if (midY < 0 && midZ < 0) quad = "III C."; else if (midY > 0 && midZ < 0) quad = "IV C.";
+        segments.push({ start: {x: p1x + t_vals[i]*dx, y: p1y + t_vals[i]*dy, z: p1z + t_vals[i]*dz}, end: {x: p1x + t_vals[i+1]*dx, y: p1y + t_vals[i+1]*dy, z: p1z + t_vals[i+1]*dz}, visible: (midY >= 0 && midZ >= 0), quad: quad });
+    }
+    return { segments, traceH, traceV, p1x, p1y, p1z, p2x, p2y, p2z };
+}
+
+function render() {
+    ctx3D.clearRect(0, 0, canvas3D.width, canvas3D.height); ctx2D.clearRect(0, 0, canvas2D.width, canvas2D.height);
+    const size = 180; const ol = project3D(-size, 0, 0), or = project3D(size, 0, 0);
+    const PERFIL_X = parseInt(perfilXSlider.value);
+    
+    // RENDER 3D PLANOS TRASEROS Y PP
+    if (chkPerfil.checked) {
+        const pp_ul = project3D(PERFIL_X, -size, size), pp_ur = project3D(PERFIL_X, size, size);
+        const pp_dl = project3D(PERFIL_X, -size, -size), pp_dr = project3D(PERFIL_X, size, -size);
+        drawPlane(pp_ul, pp_ur, pp_dr, pp_dl, 'rgba(255, 200, 100, 0.1)', '#ffa502');
+        ctx3D.fillStyle = '#ffa502'; ctx3D.font = 'bold 16px sans-serif'; ctx3D.fillText('PP', pp_ul.x, pp_ul.y - 10);
+    }
+    drawPlane(ol, or, project3D(size, 0, -size), project3D(-size, 0, -size), 'rgba(100, 150, 255, 0.15)', '#6495ED'); // PV INF
+    drawPlane(ol, or, project3D(size, -size, 0), project3D(-size, -size, 0), 'rgba(100, 255, 100, 0.15)', '#32CD32'); // PH POST
+    
+    ctx3D.beginPath(); ctx3D.moveTo(ol.x, ol.y); ctx3D.lineTo(or.x, or.y); ctx3D.strokeStyle = '#000'; ctx3D.lineWidth = 3; ctx3D.stroke();
+
+    const distQ = 100; const q1 = project3D(0, distQ, distQ); const q2 = project3D(0, -distQ, distQ); const q3 = project3D(0, -distQ, -distQ); const q4 = project3D(0, distQ, -distQ);
+    ctx3D.font = "bold 40px 'Segoe UI'"; ctx3D.fillStyle = "rgba(0, 0, 0, 0.25)"; ctx3D.textAlign = "center"; ctx3D.textBaseline = "middle";
+    ctx3D.fillText("I", q1.x, q1.y); ctx3D.fillText("II", q2.x, q2.y); ctx3D.fillText("III", q3.x, q3.y); ctx3D.fillText("IV", q4.x, q4.y);
+    ctx3D.textAlign = "left";
+
+    // TRANSFORMACIÓN 2D
+    ctx2D.save(); ctx2D.translate(canvas2D.width/2, canvas2D.height/2); ctx2D.scale(escala2D, escala2D); ctx2D.translate(-canvas2D.width/2 + offset2D.x, -canvas2D.height/2 + offset2D.y);
+
+    const cy = canvas2D.height / 2; const cxC = canvas2D.width / 2;
+    
+    ctx2D.beginPath(); ctx2D.strokeStyle = '#000'; ctx2D.lineWidth = 2; ctx2D.moveTo(-5000, cy); ctx2D.lineTo(5000, cy); ctx2D.stroke();
+    ctx2D.lineWidth = 1; ctx2D.beginPath(); ctx2D.moveTo(15 - offset2D.x/escala2D, cy+4); ctx2D.lineTo(25 - offset2D.x/escala2D, cy+4); ctx2D.stroke(); 
+    ctx2D.beginPath(); ctx2D.moveTo(375 - offset2D.x/escala2D, cy+4); ctx2D.lineTo(385 - offset2D.x/escala2D, cy+4); ctx2D.stroke();
+
+    if (chkPerfil.checked) {
+        const px2D = cxC + PERFIL_X;
+        ctx2D.beginPath(); ctx2D.strokeStyle = '#ffa502'; ctx2D.lineWidth = 2; ctx2D.moveTo(px2D, -5000); ctx2D.lineTo(px2D, 5000); ctx2D.stroke();
+        ctx2D.fillStyle = '#ffa502'; ctx2D.font = 'bold 16px sans-serif'; ctx2D.fillText('PP', px2D + 5, cy - 180 - offset2D.y/escala2D);
+    }
+
+    if (appMode === 'points') {
+        points.forEach((p, idx) => {
+            const isAct = idx === activePointIndex;
+            const p3D = project3D(p.x, p.y, p.z), pV = project3D(p.x, 0, p.z), pH = project3D(p.x, p.y, 0), pL = project3D(p.x, 0, 0);
+            ctx3D.beginPath(); ctx3D.setLineDash([4, 4]); ctx3D.strokeStyle = isAct ? p.color : '#888'; ctx3D.lineWidth = isAct ? 2 : 1;
+            ctx3D.moveTo(pL.x, pL.y); ctx3D.lineTo(pV.x, pV.y); ctx3D.lineTo(p3D.x, p3D.y); ctx3D.lineTo(pH.x, pH.y); ctx3D.lineTo(pL.x, pL.y); ctx3D.stroke(); ctx3D.setLineDash([]);
+            drawNode(ctx3D, pV.x, pV.y, p.color, p.name+'\u2082', isAct); drawNode(ctx3D, pH.x, pH.y, p.color, p.name+'\u2081', isAct); drawNode(ctx3D, p3D.x, p3D.y, '#222', p.name, isAct);
+
+            const cx = cxC + p.x, pVy = cy - p.z, pHy = cy + p.y;
+            ctx2D.beginPath(); ctx2D.setLineDash([4, 4]); ctx2D.strokeStyle = isAct ? '#444' : '#ddd'; ctx2D.lineWidth = isAct ? 1.5 : 1;
+            ctx2D.moveTo(cx, pVy); ctx2D.lineTo(cx, pHy); ctx2D.stroke(); ctx2D.setLineDash([]);
+            drawNode(ctx2D, cx, pVy, p.color, p.name+'\u2082', isAct); drawNode(ctx2D, cx, pHy, p.color, p.name+'\u2081', isAct);
+
+            if (chkPerfil.checked && isAct) {
+                const pxV = project3D(PERFIL_X, 0, p.z); const pxH = project3D(PERFIL_X, p.y, 0); const px3D = project3D(PERFIL_X, p.y, p.z);
+                ctx3D.beginPath(); ctx3D.setLineDash([2, 4]); ctx3D.strokeStyle = '#ffa502';
+                ctx3D.moveTo(pV.x, pV.y); ctx3D.lineTo(pxV.x, pxV.y); ctx3D.moveTo(pH.x, pH.y); ctx3D.lineTo(pxH.x, pxH.y);
+                ctx3D.moveTo(pxV.x, pxV.y); ctx3D.lineTo(px3D.x, px3D.y); ctx3D.moveTo(pxH.x, pxH.y); ctx3D.lineTo(px3D.x, px3D.y);
+                ctx3D.stroke(); ctx3D.setLineDash([]); drawNode(ctx3D, px3D.x, px3D.y, '#ffa502', p.name+'\u2083', false);
+                
+                const p3x = cxC + PERFIL_X + p.y; const p3y = cy - p.z;
+                ctx2D.beginPath(); ctx2D.setLineDash([2, 4]); ctx2D.strokeStyle = '#ffa502';
+                ctx2D.moveTo(cx, pVy); ctx2D.lineTo(cxC + PERFIL_X, pVy); ctx2D.moveTo(cx, pHy); ctx2D.lineTo(cxC + PERFIL_X, pHy);
+                ctx2D.arc(cxC + PERFIL_X, cy, Math.abs(p.y), p.y > 0 ? Math.PI/2 : -Math.PI/2, p.y > 0 ? 0 : Math.PI, true);
+                ctx2D.lineTo(p3x, p3y); ctx2D.moveTo(cxC + PERFIL_X, pVy); ctx2D.lineTo(p3x, p3y); ctx2D.stroke(); ctx2D.setLineDash([]);
+                drawNode(ctx2D, p3x, p3y, '#ffa502', p.name+'\u2083', false);
+            }
+        });
+    } else if (appMode === 'lines') {
+        lines.forEach((L, idx) => {
+            const isAct = idx === activeLineIndex; const data = getLineData(L);
+            
+            data.segments.forEach(seg => {
+                const s3D = project3D(seg.start.x, seg.start.y, seg.start.z); const e3D = project3D(seg.end.x, seg.end.y, seg.end.z);
+                const sV = project3D(seg.start.x, 0, seg.start.z); const eV = project3D(seg.end.x, 0, seg.end.z);
+                const sH = project3D(seg.start.x, seg.start.y, 0); const eH = project3D(seg.end.x, seg.end.y, 0);
+                
+                ctx3D.beginPath(); ctx3D.moveTo(s3D.x, s3D.y); ctx3D.lineTo(e3D.x, e3D.y); ctx3D.strokeStyle = isAct ? L.color : '#888'; ctx3D.lineWidth = isAct ? 3 : 1.5; ctx3D.stroke();
+                ctx3D.strokeStyle = isAct ? '#444' : '#aaa'; ctx3D.lineWidth = isAct ? 1.5 : 1; ctx3D.setLineDash(seg.visible ? [] : [4, 6]);
+                ctx3D.beginPath(); ctx3D.moveTo(sV.x, sV.y); ctx3D.lineTo(eV.x, eV.y); ctx3D.stroke();
+                ctx3D.beginPath(); ctx3D.moveTo(sH.x, sH.y); ctx3D.lineTo(eH.x, eH.y); ctx3D.stroke();
+                
+                const sx = cxC + seg.start.x, ex = cxC + seg.end.x, svy = cy - seg.start.z, evy = cy - seg.end.z, shy = cy + seg.start.y, ehy = cy + seg.end.y;
+                ctx2D.strokeStyle = isAct ? L.color : '#888'; ctx2D.lineWidth = isAct ? 2 : 1; ctx2D.setLineDash(seg.visible ? [] : [4, 6]); 
+                ctx2D.beginPath(); ctx2D.moveTo(sx, svy); ctx2D.lineTo(ex, evy); ctx2D.stroke();
+                ctx2D.beginPath(); ctx2D.moveTo(sx, shy); ctx2D.lineTo(ex, ehy); ctx2D.stroke();
+
+                if (isAct && seg.quad !== "") {
+                    let minX = Math.min(sx, ex), maxX = Math.max(sx, ex);
+                    if((maxX - minX) > 20) {
+                        let cotaY = cy + 180;
+                        ctx2D.beginPath(); ctx2D.strokeStyle = '#aaa'; ctx2D.lineWidth = 1; ctx2D.setLineDash([]);
+                        ctx2D.moveTo(minX + 2, cotaY); ctx2D.lineTo(maxX - 2, cotaY); ctx2D.stroke();
+                        ctx2D.moveTo(minX + 2, cotaY-4); ctx2D.lineTo(minX + 2, cotaY+4); ctx2D.stroke();
+                        ctx2D.moveTo(maxX - 2, cotaY-4); ctx2D.lineTo(maxX - 2, cotaY+4); ctx2D.stroke();
+                        ctx2D.fillStyle = L.color; ctx2D.font = 'bold 12px sans-serif'; ctx2D.textAlign = "center";
+                        ctx2D.fillText(seg.quad, (minX+maxX)/2, cotaY - 5); ctx2D.textAlign = "left";
+                    }
+                }
+
+                // 3ª PROYECCIÓN RECTAS - DIBUJADA CON COLOR DE RECTA
+                if (chkPerfil.checked && isAct) {
+                    const p3xs = cxC + PERFIL_X + seg.start.y, p3ys = cy - seg.start.z;
+                    const p3xe = cxC + PERFIL_X + seg.end.y, p3ye = cy - seg.end.z;
+                    ctx2D.beginPath(); ctx2D.setLineDash(seg.visible ? [] : [4, 6]); 
+                    ctx2D.strokeStyle = L.color; ctx2D.lineWidth = isAct ? 2.5 : 1.5; 
+                    ctx2D.moveTo(p3xs, p3ys); ctx2D.lineTo(p3xe, p3ye); ctx2D.stroke(); ctx2D.setLineDash([]);
+                    
+                    const p3D_P3s = project3D(PERFIL_X, seg.start.y, seg.start.z); const p3D_P3e = project3D(PERFIL_X, seg.end.y, seg.end.z);
+                    ctx3D.beginPath(); ctx3D.setLineDash(seg.visible ? [] : [4, 6]); 
+                    ctx3D.strokeStyle = L.color; ctx3D.lineWidth = isAct ? 3 : 1.5; 
+                    ctx3D.moveTo(p3D_P3s.x, p3D_P3s.y); ctx3D.lineTo(p3D_P3e.x, p3D_P3e.y); ctx3D.stroke(); ctx3D.setLineDash([]);
+                }
+            });
+            ctx3D.setLineDash([]); ctx2D.setLineDash([]);
+            
+            if (data.traceV) {
+                const tv3D = project3D(data.traceV.x, data.traceV.y, data.traceV.z), tvLT3D = project3D(data.traceV.x, 0, 0);
+                ctx3D.beginPath(); ctx3D.setLineDash([4, 4]); ctx3D.strokeStyle = '#888'; ctx3D.moveTo(tv3D.x, tv3D.y); ctx3D.lineTo(tvLT3D.x, tvLT3D.y); ctx3D.stroke(); ctx3D.setLineDash([]);
+                ctx2D.beginPath(); ctx2D.setLineDash([4, 4]); ctx2D.strokeStyle = '#888'; ctx2D.moveTo(cxC + data.traceV.x, cy - data.traceV.z); ctx2D.lineTo(cxC + data.traceV.x, cy); ctx2D.stroke(); ctx2D.setLineDash([]);
+                drawNode(ctx3D, tv3D.x, tv3D.y, '#222', 'V', isAct); drawNode(ctx2D, cxC + data.traceV.x, cy - data.traceV.z, '#ff4757', 'V\u2082', isAct); drawNode(ctx2D, cxC + data.traceV.x, cy, '#1e90ff', 'V\u2081', false); 
+            }
+            if (data.traceH) {
+                const th3D = project3D(data.traceH.x, data.traceH.y, data.traceH.z), thLT3D = project3D(data.traceH.x, 0, 0);
+                ctx3D.beginPath(); ctx3D.setLineDash([4, 4]); ctx3D.strokeStyle = '#888'; ctx3D.moveTo(th3D.x, th3D.y); ctx3D.lineTo(thLT3D.x, thLT3D.y); ctx3D.stroke(); ctx3D.setLineDash([]);
+                ctx2D.beginPath(); ctx2D.setLineDash([4, 4]); ctx2D.strokeStyle = '#888'; ctx2D.moveTo(cxC + data.traceH.x, cy + data.traceH.y); ctx2D.lineTo(cxC + data.traceH.x, cy); ctx2D.stroke(); ctx2D.setLineDash([]);
+                drawNode(ctx3D, th3D.x, th3D.y, '#222', 'H', isAct); drawNode(ctx2D, cxC + data.traceH.x, cy + data.traceH.y, '#1e90ff', 'H\u2081', isAct); drawNode(ctx2D, cxC + data.traceH.x, cy, '#ff4757', 'H\u2082', false); 
+            }
+            
+            if (isAct) { 
+                [L.p1, L.p2].forEach((p, index) => {
+                    const lbl = index === 0 ? 'P1' : 'P2';
+                    if(!p.ix && !p.iy && !p.iz) {
+                        const p3D = project3D(p.x, p.y, p.z), pV = project3D(p.x, 0, p.z), pH = project3D(p.x, p.y, 0), pL = project3D(p.x, 0, 0);
+                        const cx = cxC + p.x, pVy = cy - p.z, pHy = cy + p.y;
+                        
+                        ctx3D.beginPath(); ctx3D.setLineDash([4, 4]); ctx3D.strokeStyle = '#888'; ctx3D.lineWidth = 1;
+                        ctx3D.moveTo(pL.x, pL.y); ctx3D.lineTo(pV.x, pV.y); ctx3D.lineTo(p3D.x, p3D.y); ctx3D.lineTo(pH.x, pH.y); ctx3D.lineTo(pL.x, pL.y); ctx3D.stroke(); ctx3D.setLineDash([]);
+                        drawNode(ctx3D, pV.x, pV.y, L.color, lbl+'\u2082', false); drawNode(ctx3D, pH.x, pH.y, L.color, lbl+'\u2081', false); drawNode(ctx3D, p3D.x, p3D.y, '#555', lbl, true);
+
+                        ctx2D.beginPath(); ctx2D.setLineDash([4, 4]); ctx2D.strokeStyle = '#aaa'; ctx2D.lineWidth = 1;
+                        ctx2D.moveTo(cx, pVy); ctx2D.lineTo(cx, pHy); ctx2D.stroke(); ctx2D.setLineDash([]);
+                        drawNode(ctx2D, cx, pVy, L.color, lbl+'\u2082', false); drawNode(ctx2D, cx, pHy, L.color, lbl+'\u2081', false);
+
+                        if (chkPerfil.checked) {
+                            const p3x = cxC + PERFIL_X + p.y, p3y = cy - p.z;
+                            ctx2D.beginPath(); ctx2D.setLineDash([2, 4]); ctx2D.strokeStyle = '#ffa502'; ctx2D.lineWidth = 1;
+                            ctx2D.moveTo(cx, pVy); ctx2D.lineTo(cxC + PERFIL_X, pVy);
+                            ctx2D.moveTo(cx, pHy); ctx2D.lineTo(cxC + PERFIL_X, pHy);
+                            ctx2D.arc(cxC + PERFIL_X, cy, Math.abs(p.y), p.y > 0 ? Math.PI/2 : -Math.PI/2, p.y > 0 ? 0 : Math.PI, true);
+                            ctx2D.lineTo(p3x, p3y); ctx2D.moveTo(cxC + PERFIL_X, cy - p.z); ctx2D.lineTo(p3x, p3y); ctx2D.stroke(); ctx2D.setLineDash([]);
+                            drawNode(ctx2D, p3x, p3y, '#ffa502', lbl+'\u2083', false);
+                            
+                            const pxV = project3D(PERFIL_X, 0, p.z); const pxH = project3D(PERFIL_X, p.y, 0); const px3D = project3D(PERFIL_X, p.y, p.z);
+                            ctx3D.beginPath(); ctx3D.setLineDash([2, 4]); ctx3D.strokeStyle = '#ffa502';
+                            ctx3D.moveTo(pV.x, pV.y); ctx3D.lineTo(pxV.x, pxV.y);
+                            ctx3D.moveTo(pH.x, pH.y); ctx3D.lineTo(pxH.x, pxH.y);
+                            ctx3D.moveTo(pxV.x, pxV.y); ctx3D.lineTo(px3D.x, px3D.y); ctx3D.moveTo(pxH.x, pxH.y); ctx3D.lineTo(px3D.x, px3D.y);
+                            ctx3D.stroke(); ctx3D.setLineDash([]); drawNode(ctx3D, px3D.x, px3D.y, '#ffa502', lbl+'\u2083', false);
+                        }
+                    }
+                });
+            }
+            
+            if(!L.p2.ix && !L.p2.iz) { ctx3D.fillStyle = isAct?L.color:'#888'; ctx2D.fillStyle = isAct?L.color:'#888'; ctx3D.font = isAct?'bold 14px sans-serif':'italic 12px sans-serif'; ctx2D.font = ctx3D.font; ctx3D.fillText(L.name+'\u2082', project3D(L.p2.x, 0, L.p2.z).x+8, project3D(L.p2.x, 0, L.p2.z).y-8); ctx2D.fillText(L.name+'\u2082', cxC+L.p2.x+8, cy-L.p2.z-8); }
+            if(!L.p2.ix && !L.p2.iy) { ctx3D.fillStyle = isAct?L.color:'#888'; ctx2D.fillStyle = isAct?L.color:'#888'; ctx3D.font = isAct?'bold 14px sans-serif':'italic 12px sans-serif'; ctx2D.font = ctx3D.font; ctx3D.fillText(L.name+'\u2081', project3D(L.p2.x, L.p2.y, 0).x+8, project3D(L.p2.x, L.p2.y, 0).y-8); ctx2D.fillText(L.name+'\u2081', cxC+L.p2.x+8, cy+L.p2.y-8); }
+            if(chkPerfil.checked && isAct && !L.p2.iy && !L.p2.iz) { 
+                ctx2D.fillStyle = L.color; ctx2D.font = 'bold 14px sans-serif'; ctx2D.fillText(L.name+'\u2083', cxC+PERFIL_X+L.p2.y+8, cy-L.p2.z-8); 
+                ctx3D.fillStyle = L.color; ctx3D.font = 'bold 14px sans-serif'; ctx3D.fillText(L.name+'\u2083', project3D(PERFIL_X, L.p2.y, L.p2.z).x+8, project3D(PERFIL_X, L.p2.y, L.p2.z).y-8); 
+            }
+        });
+    } else if (appMode === 'planes') {
+        planes.forEach((pl, idx) => {
+            const isAct = idx === activePlaneIndex; const s = 2.5; 
+            const isParallelLT = pl.type === 'paralelo_lt' || pl.type === 'horizontal' || pl.type === 'frontal';
+            let drawAlpha1 = pl.type !== 'horizontal'; let drawAlpha2 = pl.type !== 'frontal';
+            const t_max = 5000; 
+            const vx2D = cxC + pl.x;
+
+            if (!isParallelLT) {
+                let vH = {x: 80, y: pl.y, z: 0}; let vV = {x: 80, y: 0, z: pl.z};
+                if(pl.type === 'proy_vert') vH = {x: 0, y: 80, z: 0}; 
+                if(pl.type === 'proy_horiz') vV = {x: 0, y: 0, z: 80}; 
+                if(pl.type === 'perfil') { vH = {x: 0, y: 80, z: 0}; vV = {x: 0, y: 0, z: 80}; }
+
+                const v3D = project3D(pl.x, 0, 0); 
+                const tV3D = project3D(pl.x + (t_max/80)*vV.x, 0, (t_max/80)*vV.z); 
+                const tH3D = project3D(pl.x + (t_max/80)*vH.x, (t_max/80)*vH.y, 0); 
+                const tVneg3D = project3D(pl.x - (t_max/80)*vV.x, 0, -(t_max/80)*vV.z); 
+                const tHneg3D = project3D(pl.x - (t_max/80)*vH.x, -(t_max/80)*vH.y, 0); 
+
+                if (isAct) {
+                    const c3D_1 = project3D(pl.x + (t_max/80)*vV.x + (t_max/80)*vH.x, (t_max/80)*vH.y, (t_max/80)*vV.z);
+                    const c3D_2 = project3D(pl.x - (t_max/80)*vV.x + (t_max/80)*vH.x, (t_max/80)*vH.y, -(t_max/80)*vV.z);
+                    const c3D_3 = project3D(pl.x - (t_max/80)*vV.x - (t_max/80)*vH.x, -(t_max/80)*vH.y, -(t_max/80)*vV.z);
+                    const c3D_4 = project3D(pl.x + (t_max/80)*vV.x - (t_max/80)*vH.x, -(t_max/80)*vH.y, (t_max/80)*vV.z);
+                    ctx3D.beginPath(); ctx3D.moveTo(c3D_1.x, c3D_1.y); ctx3D.lineTo(c3D_2.x, c3D_2.y); ctx3D.lineTo(c3D_3.x, c3D_3.y); ctx3D.lineTo(c3D_4.x, c3D_4.y); ctx3D.closePath();
+                    ctx3D.fillStyle = pl.color; ctx3D.globalAlpha = 0.15; ctx3D.fill(); ctx3D.globalAlpha = 1.0;
+                }
+
+                ctx3D.strokeStyle = isAct ? pl.color : '#888'; ctx3D.lineWidth = isAct ? 3 : 1.5;
+                if(drawAlpha2) { ctx3D.beginPath(); ctx3D.moveTo(v3D.x, v3D.y); ctx3D.lineTo(tV3D.x, tV3D.y); ctx3D.stroke(); }
+                if(drawAlpha1) { ctx3D.beginPath(); ctx3D.moveTo(v3D.x, v3D.y); ctx3D.lineTo(tH3D.x, tH3D.y); ctx3D.stroke(); }
+                ctx3D.setLineDash([4, 4]); ctx3D.lineWidth = isAct ? 2 : 1;
+                if(drawAlpha2) { ctx3D.beginPath(); ctx3D.moveTo(v3D.x, v3D.y); ctx3D.lineTo(tVneg3D.x, tVneg3D.y); ctx3D.stroke(); }
+                if(drawAlpha1) { ctx3D.beginPath(); ctx3D.moveTo(v3D.x, v3D.y); ctx3D.lineTo(tHneg3D.x, tHneg3D.y); ctx3D.stroke(); }
+                ctx3D.setLineDash([]);
+
+                const lblV3D = project3D(pl.x + vV.x, 0, vV.z); const lblH3D = project3D(pl.x + vH.x, vH.y, 0);
+                ctx3D.fillStyle = isAct ? pl.color : '#888'; ctx3D.font = isAct ? 'bold 18px sans-serif' : 'italic 16px sans-serif';
+                if(drawAlpha2) ctx3D.fillText(pl.name + '\u2082', lblV3D.x + 5, lblV3D.y - 5); if(drawAlpha1) ctx3D.fillText(pl.name + '\u2081', lblH3D.x + 5, lblH3D.y + 15);
+
+                ctx2D.strokeStyle = isAct ? pl.color : '#888'; ctx2D.lineWidth = isAct ? 2.5 : 1.5;
+                let tvX2D = cxC + pl.x + (t_max/80)*vV.x, tvy2D = cy - (t_max/80)*vV.z;
+                let thX2D = cxC + pl.x + (t_max/80)*vH.x, thy2D = cy + (t_max/80)*vH.y;
+                let tvX_n2D = cxC + pl.x - (t_max/80)*vV.x, tvy_n2D = cy + (t_max/80)*vV.z;
+                let thX_n2D = cxC + pl.x - (t_max/80)*vH.x, thy_n2D = cy - (t_max/80)*vH.y;
+
+                if(drawAlpha2) {
+                    ctx2D.beginPath(); ctx2D.moveTo(vx2D, cy); ctx2D.lineTo(tvX2D, tvy2D); ctx2D.stroke();
+                    ctx2D.setLineDash([4, 4]); ctx2D.lineWidth = isAct ? 1.5 : 1; ctx2D.beginPath(); ctx2D.moveTo(vx2D, cy); ctx2D.lineTo(tvX_n2D, tvy_n2D); ctx2D.stroke(); ctx2D.setLineDash([]);
+                    ctx2D.fillStyle = isAct ? pl.color : '#888'; ctx2D.font = isAct ? 'bold 18px sans-serif' : 'italic 16px sans-serif'; ctx2D.fillText(pl.name + '\u2082', cxC + pl.x + vV.x + 5, cy - vV.z - 5);
+                }
+                if(drawAlpha1) {
+                    ctx2D.lineWidth = isAct ? 2.5 : 1.5; ctx2D.beginPath(); ctx2D.moveTo(vx2D, cy); ctx2D.lineTo(thX2D, thy2D); ctx2D.stroke();
+                    ctx2D.setLineDash([4, 4]); ctx2D.lineWidth = isAct ? 1.5 : 1; ctx2D.beginPath(); ctx2D.moveTo(vx2D, cy); ctx2D.lineTo(thX_n2D, thy_n2D); ctx2D.stroke(); ctx2D.setLineDash([]);
+                    ctx2D.fillStyle = isAct ? pl.color : '#888'; ctx2D.font = isAct ? 'bold 18px sans-serif' : 'italic 16px sans-serif'; ctx2D.fillText(pl.name + '\u2081', cxC + pl.x + vH.x + 5, cy + vH.y + 15);
+                }
+                if(isAct && pl.type !== 'perfil') drawNode(ctx2D, vx2D, cy, '#000', '');
+
+            } else {
+                const xMin = -t_max, xMax = t_max; let zVal = pl.z; let yVal = pl.y;
+                const tV1_3D = project3D(xMin, 0, zVal), tV2_3D = project3D(xMax, 0, zVal);
+                const tH1_3D = project3D(xMin, yVal, 0), tH2_3D = project3D(xMax, yVal, 0);
+
+                if (isAct) {
+                    ctx3D.beginPath();
+                    if (drawAlpha2 && drawAlpha1) { ctx3D.moveTo(tV1_3D.x, tV1_3D.y); ctx3D.lineTo(tV2_3D.x, tV2_3D.y); ctx3D.lineTo(tH2_3D.x, tH2_3D.y); ctx3D.lineTo(tH1_3D.x, tH1_3D.y); }
+                    else if (drawAlpha2 && !drawAlpha1) { const b1 = project3D(xMin, -t_max, zVal), b2 = project3D(xMax, -t_max, zVal); ctx3D.moveTo(tV1_3D.x, tV1_3D.y); ctx3D.lineTo(tV2_3D.x, tV2_3D.y); ctx3D.lineTo(b2.x, b2.y); ctx3D.lineTo(b1.x, b1.y); }
+                    else if (!drawAlpha2 && drawAlpha1) { const t1 = project3D(xMin, yVal, t_max), t2 = project3D(xMax, yVal, t_max); ctx3D.moveTo(tH1_3D.x, tH1_3D.y); ctx3D.lineTo(tH2_3D.x, tH2_3D.y); ctx3D.lineTo(t2.x, t2.y); ctx3D.lineTo(t1.x, t1.y); }
+                    ctx3D.closePath(); ctx3D.fillStyle = pl.color; ctx3D.globalAlpha = 0.15; ctx3D.fill(); ctx3D.globalAlpha = 1.0;
+                }
+
+                ctx3D.strokeStyle = isAct ? pl.color : '#888'; ctx3D.lineWidth = isAct ? 3 : 1.5;
+                if (drawAlpha2) { ctx3D.beginPath(); ctx3D.moveTo(tV1_3D.x, tV1_3D.y); ctx3D.lineTo(tV2_3D.x, tV2_3D.y); ctx3D.stroke(); ctx3D.fillStyle = isAct ? pl.color : '#888'; ctx3D.font = isAct ? 'bold 18px sans-serif' : 'italic 16px sans-serif'; ctx3D.fillText(pl.name + '\u2082', project3D(50,0,zVal).x, project3D(50,0,zVal).y - 5); }
+                if (drawAlpha1) { ctx3D.beginPath(); ctx3D.moveTo(tH1_3D.x, tH1_3D.y); ctx3D.lineTo(tH2_3D.x, tH2_3D.y); ctx3D.stroke(); ctx3D.fillStyle = isAct ? pl.color : '#888'; ctx3D.font = isAct ? 'bold 18px sans-serif' : 'italic 16px sans-serif'; ctx3D.fillText(pl.name + '\u2081', project3D(50,yVal,0).x, project3D(50,yVal,0).y + 15); }
+
+                ctx2D.strokeStyle = isAct ? pl.color : '#888'; ctx2D.lineWidth = isAct ? 2.5 : 1.5;
+                if (drawAlpha2) { ctx2D.beginPath(); ctx2D.moveTo(-t_max, cy - zVal); ctx2D.lineTo(t_max, cy - zVal); ctx2D.stroke(); ctx2D.fillStyle = isAct ? pl.color : '#888'; ctx2D.font = isAct ? 'bold 18px sans-serif' : 'italic 16px sans-serif'; ctx2D.fillText(pl.name + '\u2082', cxC + 50, cy - zVal - 5); }
+                if (drawAlpha1) { ctx2D.beginPath(); ctx2D.moveTo(-t_max, cy + yVal); ctx2D.lineTo(t_max, cy + yVal); ctx2D.stroke(); ctx2D.fillStyle = isAct ? pl.color : '#888'; ctx2D.font = isAct ? 'bold 18px sans-serif' : 'italic 16px sans-serif'; ctx2D.fillText(pl.name + '\u2081', cxC + 50, cy + yVal + 15); }
+            }
+
+            if (chkPerfil.checked && isAct) {
+                ctx2D.beginPath(); ctx2D.strokeStyle = '#ffa502'; ctx2D.lineWidth = 2;
+                ctx3D.beginPath(); ctx3D.strokeStyle = '#ffa502'; ctx3D.lineWidth = 2;
+                
+                const drawProfileTrace = (y_int, z_int, type) => {
+                    const p3z = cy - z_int; const p3y = cxC + PERFIL_X + y_int; 
+                    
+                    if(drawAlpha1 && type !== 'horizontal') {
+                        ctx2D.setLineDash([2, 4]); ctx2D.strokeStyle = '#ffa502'; ctx2D.lineWidth = 1;
+                        ctx2D.beginPath(); ctx2D.moveTo(cxC + PERFIL_X, cy + y_int);
+                        ctx2D.arc(cxC + PERFIL_X, cy, Math.abs(y_int), y_int > 0 ? Math.PI/2 : -Math.PI/2, y_int > 0 ? 0 : Math.PI, true);
+                        ctx2D.stroke(); ctx2D.setLineDash([]); ctx2D.lineWidth = 2; ctx2D.beginPath();
+                    }
+
+                    if (type === 'proy_vert') { 
+                        ctx2D.moveTo(cxC + PERFIL_X - t_max, p3z); ctx2D.lineTo(cxC + PERFIL_X + t_max, p3z); ctx2D.stroke();
+                        ctx2D.fillStyle = '#ffa502'; ctx2D.fillText(pl.name + '\u2083', cxC + PERFIL_X + 80, p3z - 5);
+                        ctx3D.moveTo(project3D(PERFIL_X, -t_max, z_int).x, project3D(PERFIL_X, -t_max, z_int).y); ctx3D.lineTo(project3D(PERFIL_X, t_max, z_int).x, project3D(PERFIL_X, t_max, z_int).y); ctx3D.stroke();
+                        ctx3D.fillStyle = '#ffa502'; ctx3D.fillText(pl.name + '\u2083', project3D(PERFIL_X, 80, z_int).x, project3D(PERFIL_X, 80, z_int).y - 5);
+                    } else if (type === 'proy_horiz') { 
+                        ctx2D.moveTo(p3y, cy - t_max); ctx2D.lineTo(p3y, cy + t_max); ctx2D.stroke();
+                        ctx2D.fillStyle = '#ffa502'; ctx2D.fillText(pl.name + '\u2083', p3y + 5, cy - 80);
+                        ctx3D.moveTo(project3D(PERFIL_X, y_int, -t_max).x, project3D(PERFIL_X, y_int, -t_max).y); ctx3D.lineTo(project3D(PERFIL_X, y_int, t_max).x, project3D(PERFIL_X, y_int, t_max).y); ctx3D.stroke();
+                        ctx3D.fillStyle = '#ffa502'; ctx3D.fillText(pl.name + '\u2083', project3D(PERFIL_X, y_int, 80).x, project3D(PERFIL_X, y_int, 80).y - 5);
+                    } else if (type === 'horizontal') {
+                        ctx2D.moveTo(cxC + PERFIL_X - t_max, cy - pl.z); ctx2D.lineTo(cxC + PERFIL_X + t_max, cy - pl.z); ctx2D.stroke();
+                        ctx2D.fillStyle = '#ffa502'; ctx2D.fillText(pl.name + '\u2083', cxC + PERFIL_X + 80, cy - pl.z - 5);
+                        ctx3D.moveTo(project3D(PERFIL_X, -t_max, pl.z).x, project3D(PERFIL_X, -t_max, pl.z).y); ctx3D.lineTo(project3D(PERFIL_X, t_max, pl.z).x, project3D(PERFIL_X, t_max, pl.z).y); ctx3D.stroke();
+                        ctx3D.fillStyle = '#ffa502'; ctx3D.fillText(pl.name + '\u2083', project3D(PERFIL_X, 80, pl.z).x, project3D(PERFIL_X, 80, pl.z).y - 5);
+                    } else if (type === 'frontal') {
+                        ctx2D.beginPath(); ctx2D.setLineDash([2, 4]); ctx2D.strokeStyle = '#ffa502'; ctx2D.lineWidth = 1;
+                        ctx2D.arc(cxC + PERFIL_X, cy, Math.abs(pl.y), pl.y > 0 ? Math.PI/2 : -Math.PI/2, pl.y > 0 ? 0 : Math.PI, true); ctx2D.stroke(); ctx2D.setLineDash([]);
+                        ctx2D.beginPath(); ctx2D.strokeStyle = '#ffa502'; ctx2D.lineWidth = 2;
+                        ctx2D.moveTo(cxC + PERFIL_X + pl.y, cy - t_max); ctx2D.lineTo(cxC + PERFIL_X + pl.y, cy + t_max); ctx2D.stroke();
+                        ctx2D.fillStyle = '#ffa502'; ctx2D.fillText(pl.name + '\u2083', cxC + PERFIL_X + pl.y + 5, cy - 80);
+                        ctx3D.moveTo(project3D(PERFIL_X, pl.y, -t_max).x, project3D(PERFIL_X, pl.y, -t_max).y); ctx3D.lineTo(project3D(PERFIL_X, pl.y, t_max).x, project3D(PERFIL_X, pl.y, t_max).y); ctx3D.stroke();
+                        ctx3D.fillStyle = '#ffa502'; ctx3D.fillText(pl.name + '\u2083', project3D(PERFIL_X, pl.y, 80).x, project3D(PERFIL_X, pl.y, 80).y - 5);
+                    } else if (type !== 'perfil') { 
+                        ctx2D.beginPath(); ctx2D.strokeStyle = '#ffa502';
+                        ctx2D.moveTo(cxC + PERFIL_X, p3z); ctx2D.lineTo(p3y, cy); ctx2D.stroke();
+                        ctx2D.fillStyle = '#ffa502'; ctx2D.fillText(pl.name + '\u2083', cxC + PERFIL_X + y_int/2 + 10, cy - z_int/2 - 10);
+                        
+                        ctx3D.moveTo(project3D(PERFIL_X, 0, z_int).x, project3D(PERFIL_X, 0, z_int).y); ctx3D.lineTo(project3D(PERFIL_X, y_int, 0).x, project3D(PERFIL_X, y_int, 0).y); ctx3D.stroke();
+                        ctx3D.fillStyle = '#ffa502'; ctx3D.fillText(pl.name + '\u2083', project3D(PERFIL_X, y_int/2, z_int/2).x, project3D(PERFIL_X, y_int/2, z_int/2).y - 5);
+                    }
+                };
+
+                let interZ = pl.z, interY = pl.y;
+                if(!isParallelLT && pl.type !== 'perfil') { interZ = (pl.z/80) * (PERFIL_X - pl.x); interY = (pl.y/80) * (PERFIL_X - pl.x); }
+                drawProfileTrace(interY, interZ, pl.type);
+            }
+        });
+    }
+
+    // RENDER 3D PLANOS FRONTALES (Z-INDEX)
+    drawPlane(ol, or, project3D(size, size, 0), project3D(-size, size, 0), 'rgba(100, 255, 100, 0.15)', '#32CD32'); // PH ANT
+    drawPlane(ol, or, project3D(size, 0, size), project3D(-size, 0, size), 'rgba(100, 150, 255, 0.15)', '#6495ED'); // PV SUP
+    
+    ctx3D.fillStyle = '#6495ED'; ctx3D.font = 'bold 18px sans-serif'; ctx3D.fillText("PV", project3D(size-20, 0, size-20).x, project3D(size-20, 0, size-20).y);
+    ctx3D.fillStyle = '#32CD32'; ctx3D.font = 'bold 18px sans-serif'; ctx3D.fillText("PH", project3D(size-20, size-20, 0).x, project3D(size-20, size-20, 0).y);
+
+    ctx2D.restore(); 
+}
+
+function drawNode(ctx, x, y, color, label, isAct = false) {
+    ctx.beginPath(); ctx.arc(x, y, isAct ? 4 : 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = isAct ? 1.5 : 1; ctx.stroke();
+    if(label !== '') { ctx.fillStyle = isAct ? '#000' : '#555'; ctx.font = isAct ? 'bold 13px sans-serif' : '10px sans-serif'; ctx.fillText(label, x + 6, y - 6); }
+}
+
+updateLogic();
+</script>
+</body>
+</html>
